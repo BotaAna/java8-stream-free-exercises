@@ -92,7 +92,7 @@ public class WorkShopTest {
    */
   @Test
   public void shouldReturnAllCompaniesNameAsString() {
-    final String allCompaniesName = workShop.getAllCompaniesNamesAsString();
+    final String allCompaniesName = workShop.getAllCompaniesNamesAsStringAsStream();
     assertEquals("Nescafe+Gerber+Nestea+Fanta+Sprite+Lays+Pepsi+Mirinda", allCompaniesName);
   }
 
@@ -110,7 +110,7 @@ public class WorkShopTest {
    */
   @Test
   public void shouldReturnHowMuchAccountHaveUsers() {
-    final long accountAmount = workShop.getAllUserAccountsAmount();
+    final long accountAmount = workShop.getAllUserAccountsAmountAsStream2();
     assertEquals(35, accountAmount);
   }
 
@@ -446,7 +446,7 @@ public class WorkShopTest {
    */
   @Test
   public void shouldCountAllUsersInAllCompaniesAsStream() {
-    final long userAmount = workShop.getAllUserAmountAsStream();
+    final long userAmount = workShop.getAllUserAmountAsStream2();
     assertEquals(20, userAmount);
   }
 
@@ -455,7 +455,7 @@ public class WorkShopTest {
    */
   @Test
   public void shouldReturnAllCompaniesNameAsStream() {
-    final List<String> allCompaniesName = workShop.getAllCompaniesNamesAsStream();
+    final List<String> allCompaniesName = workShop.getAllCompaniesNamesAsStream2();
     assertEquals("[Nescafe, Gerber, Nestea, Fanta, Sprite, Lays, Pepsi, Mirinda]", allCompaniesName.toString());
   }
 
