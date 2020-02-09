@@ -1,23 +1,20 @@
 package pl.klolo.workshops.logic;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.util.*;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Predicate;
+import java.util.stream.Collector;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
-import pl.klolo.workshops.domain.Account;
-import pl.klolo.workshops.domain.AccountType;
-import pl.klolo.workshops.domain.Company;
+
+import pl.klolo.workshops.domain.*;
 import pl.klolo.workshops.domain.Currency;
-import pl.klolo.workshops.domain.Holding;
-import pl.klolo.workshops.domain.Permit;
-import pl.klolo.workshops.domain.User;
 import pl.klolo.workshops.mock.HoldingMockGenerator;
 
-import static java.util.Objects.compare;
-import static java.util.Objects.nonNull;
+import static java.util.Objects.*;
 
 class WorkShop {
 
@@ -27,7 +24,7 @@ class WorkShop {
   private final List<Holding> holdings;
 
   // Predykat określający czy użytkownik jest kobietą
-  private final Predicate<User> isWoman = null;
+  private final Predicate<User> isWoman = user -> Sex.WOMAN.equals(user.getSex());
 
   WorkShop() {
     final HoldingMockGenerator holdingMockGenerator = new HoldingMockGenerator();
@@ -273,15 +270,12 @@ class WorkShop {
    */
   String getAllCurrencies() {
     Set<String> currencies = new HashSet<>();
-    for (Holding holding : holdings) {
-      for (Company company : holding.getCompanies()) {
-        for (User user : company.getUsers()) {
-          for (Account account : user.getAccounts()) {
+    for (Holding holding : holdings)
+      for (Company company : holding.getCompanies())
+        for (User user : company.getUsers())
+          for (Account account : user.getAccounts())
             currencies.add(account.getCurrency().toString());
-          }
-        }
-      }
-    }
+
     List<String> currencyList = new ArrayList<>(currencies);
     Collections.sort(currencyList);
     return currencyList.toString().replaceAll("[\\[|\\]]", "");
@@ -315,7 +309,15 @@ class WorkShop {
    * Zwraca liczbę kobiet we wszystkich firmach.
    */
   long getWomanAmount() {
-    return -1;
+    long womenAmount = 0L;
+    for (Holding holding : holdings)
+      for (Company company : holding.getCompanies())
+        for (User user : company.getUsers())
+          //if(user.getSex().equals(Sex.WOMAN))
+          //if(Sex.WOMAN.equals(user.getSex()))
+          if(isWoman.test(user)) // korzysta z predykatu
+            womenAmount++;
+    return womenAmount;
   }
 
   /**
@@ -323,58 +325,111 @@ class WorkShop {
    * czy mamy doczynienia z kobietą inech będzie polem statycznym w klasie. Napisz to za pomocą strumieni.
    */
   long getWomanAmountAsStream() {
-    return -1;
+    return getUserStream()
+            //.map(user -> user.getSex()) ie jest potrzebne
+            //.filter(sex -> Sex.WOMAN.equals(sex) // poprawne ale bez użycia predicatu
+            .filter(isWoman) // z użyciem predicatu
+            .count();
   }
-
 
   /**
    * Przelicza kwotę na rachunku na złotówki za pomocą kursu określonego w enum Currency. Ustaw precyzje na 3 miejsca po przecinku.
    */
   BigDecimal getAccountAmountInPLN(final Account account) {
-    return null;
+    return account
+            .getAmount()
+            .multiply(BigDecimal.valueOf(account.getCurrency().rate))
+            .setScale(3, RoundingMode.HALF_DOWN);
   }
-
 
   /**
    * Przelicza kwotę na rachunku na złotówki za pomocą kursu określonego w enum Currency. Napisz to za pomocą strumieni.
    */
+  //Robienie streamu jest bezsensowne w typ przypadku, bo powyższe rozwiązanie jest wystarczające.
   BigDecimal getAccountAmountInPLNAsStream(final Account account) {
-    return null;
+    return Optional
+            .ofNullable(account)
+            .map(acc -> acc
+                    .getAmount()
+                    .multiply(BigDecimal.valueOf(account.getCurrency().rate))
+                    .setScale(3, RoundingMode.HALF_DOWN))
+            //.get()
+            .orElse(BigDecimal.ZERO);
   }
 
   /**
    * Przelicza kwotę na podanych rachunkach na złotówki za pomocą kursu określonego w enum Currency  i sumuje ją.
    */
   BigDecimal getTotalCashInPLN(final List<Account> accounts) {
-    return null;
+    BigDecimal balanceInPLN = BigDecimal.ZERO;
+    for (Account account : accounts)
+      /*balanceInPLN = account
+              .getAmount()
+              .multiply(BigDecimal.valueOf(account.getCurrency().rate))
+              .setScale(3, RoundingMode.HALF_DOWN)
+              .add(balanceInPLN);*/
+      //poniżej ładniejsza wersja
+      balanceInPLN = balanceInPLN
+              .add(getAccountAmountInPLN(account));
+
+    return balanceInPLN;
   }
 
   /**
    * Przelicza kwotę na podanych rachunkach na złotówki za pomocą kursu określonego w enum Currency  i sumuje ją. Napisz to za pomocą strumieni.
    */
   BigDecimal getTotalCashInPLNAsStream(final List<Account> accounts) {
-    return null;
+    return accounts
+            .stream()
+            //.map(account -> account.getAmount())
+            .map(this::getAccountAmountInPLNAsStream)
+            .reduce((bigDecimal, bigDecimal2) -> bigDecimal.add(bigDecimal2))
+            .get();
   }
 
   /**
    * Zwraca imiona użytkowników w formie zbioru, którzy spełniają podany warunek.
    */
   Set<String> getUsersForPredicate(final Predicate<User> userPredicate) {
-    return null;
+    Set<String> usersNames = new HashSet<>();
+    for (Holding holding : holdings)
+      for (Company company : holding.getCompanies())
+        for (User user : company.getUsers())
+          if(userPredicate.test(user)) // korzysta z predykatu
+            usersNames.add(user.getFirstName());
+    return usersNames;
   }
 
   /**
    * Zwraca imiona użytkowników w formie zbioru, którzy spełniają podany warunek. Napisz to za pomocą strumieni.
    */
   Set<String> getUsersForPredicateAsStream(final Predicate<User> userPredicate) {
-    return null;
+    return getUserStream()
+            .filter(userPredicate)
+            .map(user -> user.getFirstName())
+            .collect(Collectors.toSet());
+
   }
 
   /**
    * Metoda filtruje użytkowników starszych niż podany jako parametr wiek, wyświetla ich na konsoli, odrzuca mężczyzn i zwraca ich imiona w formie listy.
    */
   List<String> getOldWoman(final int age) {
-    return null;
+    List<User> users = new ArrayList<>();
+    for (Holding holding : holdings)
+      for (Company company : holding.getCompanies())
+        for (User user : company.getUsers())
+          if (user.getAge() > age) {
+            users.add(user);
+          }
+    System.out.println(users);
+          List<String> olderWomanNames = new ArrayList<>();
+          for (User user : users)
+            if (isWoman.test(user))
+              olderWomanNames.add(user.getFirstName());
+
+    //users.removeIf(u -> !isWoman.test(u)); dobre, jeśli nie trzeba wyświetlić imion
+    return olderWomanNames;
   }
 
   /**
@@ -382,50 +437,98 @@ class WorkShop {
    * to za pomocą strumieni.
    */
   List<String> getOldWomanAsStream(final int age) {
-    return null;
+    return getUserStream()
+            .filter(user -> user.getAge() > age)
+            .peek(user -> System.out.println(user))
+            .filter(isWoman)
+            .map(User::getFirstName)
+            .collect(Collectors.toList());
   }
 
   /**
    * Dla każdej firmy uruchamia przekazaną metodę.
    */
   void executeForEachCompany(final Consumer<Company> consumer) {
-    throw new IllegalArgumentException();
+    getCompanyStream().forEach(consumer);
   }
 
   /**
    * Wyszukuje najbogatsza kobietę i zwraca ja. Metoda musi uzwględniać to że rachunki są w różnych walutach.
    */
   Optional<User> getRichestWoman() {
-    return null;
+    User richestWomen = null;
+    BigDecimal richestWomanMany = BigDecimal.ZERO;
+    for (Holding holding : holdings)
+      for (Company company : holding.getCompanies())
+        for (User user : company.getUsers())
+          if (isWoman.test(user)) {
+            BigDecimal totalCashInPLN = getTotalCashInPLN(user.getAccounts());
+            if (totalCashInPLN.compareTo(richestWomanMany) > 0) {
+              richestWomen = user;
+              richestWomanMany = totalCashInPLN;
+            }
+          }
+    return Optional.ofNullable(richestWomen);
   }
 
   /**
    * Wyszukuje najbogatsza kobietę i zwraca ja. Metoda musi uzwględniać to że rachunki są w różnych walutach. Napisz to za pomocą strumieni.
    */
   Optional<User> getRichestWomanAsStream() {
-    return null;
+    return getUserStream()
+            .filter(isWoman)
+            .max(Comparator.comparing(user -> getTotalCashInPLNAsStream(user.getAccounts())));
+
   }
 
   /**
    * Zwraca nazwy pierwszych N firm. Kolejność nie ma znaczenia.
    */
   Set<String> getFirstNCompany(final int n) {
-    return null;
+    Set<String> companyNames = new HashSet<>();
+    for (Holding holding : holdings)
+      for (Company company : holding.getCompanies())
+        if (companyNames.size() < n )
+          companyNames.add(company.getName());
+    return companyNames;
   }
 
   /**
    * Zwraca nazwy pierwszych N firm. Kolejność nie ma znaczenia. Napisz to za pomocą strumieni.
    */
   Set<String> getFirstNCompanyAsStream(final int n) {
-    return null;
+    return getCompanyStream()
+            .limit(n)
+            .map(company -> company.getName())
+            .collect(Collectors.toSet());
   }
 
   /**
    * Metoda zwraca jaki rodzaj rachunku jest najpopularniejszy. Stwórz pomocniczą metdę getAccountStream. Jeżeli nie udało się znaleźć najpopularnijeszego
-   * rachunku metoda ma wyrzucić wyjątek IllegalStateException. Pierwsza instrukcja metody to return.
-   */
+   * rachunku metoda ma wyrzucić wyjątek IllegalStateException.
+   */ //sprawdzić wszystkie rachunki i znaleźć najczęściej posiadany
   AccountType getMostPopularAccountType() {
-    return null;
+    Map<AccountType, Integer> map = new EnumMap<>(AccountType.class);
+
+    AccountType accountName = null;
+    for (Holding holding : holdings) {
+      for (Company company : holding.getCompanies())
+        for (User user : company.getUsers())
+          for (Account account : user.getAccounts())
+            map.compute(account.getType(), (accountType, integer) -> isNull(integer) ? 1 : integer + 1);
+    }
+    AccountType winner = null;
+    Integer winnerCount = 0;
+    for (Map.Entry<AccountType, Integer> entry : map.entrySet()) {
+      if (winnerCount < entry.getValue()) {
+        winner = entry.getKey();
+        winnerCount = entry.getValue();
+      }
+    }
+      if (nonNull(winner)) {
+        return winner;
+      }
+      throw new IllegalArgumentException();
   }
 
   /**
@@ -433,7 +536,15 @@ class WorkShop {
    * rachunku metoda ma wyrzucić wyjątek IllegalStateException. Pierwsza instrukcja metody to return. Napisz to za pomocą strumieni.
    */
   AccountType getMostPopularAccountTypeAsStream() {
-    return null;
+    return getAccoutStream()
+            .map(Account::getType)
+            //poniej: grupujemy i ilość wystąpień wpadających do colectora
+            .collect(Collectors.groupingBy(accountType -> accountType, Collectors.counting()))
+            .entrySet()
+            .stream()
+            .max(Comparator.comparingLong(Map.Entry::getValue))
+            .orElseThrow(IllegalArgumentException::new)
+            .getKey();
   }
 
   /**
@@ -455,14 +566,20 @@ class WorkShop {
    * Zwraca mapę firm, gdzie kluczem jest jej nazwa a wartością lista pracowników.
    */
   Map<String, List<User>> getUserPerCompany() {
-    return null;
+    Map<String, List<User>> mapOfUsers = new HashMap<>();
+    for (Holding holding : holdings)
+      for (Company company : holding.getCompanies())
+        mapOfUsers.put(company.getName(), company.getUsers());
+    return mapOfUsers;
   }
 
   /**
    * Zwraca mapę firm, gdzie kluczem jest jej nazwa a wartością lista pracowników. Napisz to za pomocą strumieni.
    */
   Map<String, List<User>> getUserPerCompanyAsStream() {
-    return null;
+    return getCompanyStream()
+            .collect(Collectors.toMap(Company::getName, Company::getUsers));
+    //.collect(Collectors.toMap(company -> company.getName(), company -> company.getUsers()));
   }
 
   /**
@@ -470,7 +587,22 @@ class WorkShop {
    * Możesz skorzystać z metody entrySet.
    */
   Map<String, List<String>> getUserPerCompanyAsString() {
-    return null;
+    Map<String, List<String>> mapOfUsersFullName = new HashMap<>();
+
+    for (Holding holding : holdings) {
+      for (Company company : holding.getCompanies()) {
+        List<String> fullUserName = new ArrayList<>();
+        for (User user : company.getUsers()) {
+          fullUserName.add(user.getFirstName() + " " + user.getLastName());
+        }
+        mapOfUsersFullName.put(company.getName(), fullUserName);
+      }
+    }
+    /*for (Holding holding : holdings)
+      for (Company company : holding.getCompanies())
+        mapOfUsersFullName.put(company.getName(), fullUserName);*/
+
+    return mapOfUsersFullName;
   }
 
   /**
